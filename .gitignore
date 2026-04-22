@@ -1,0 +1,48 @@
+# Local environment and OS files
+.env
+.env.*
+.DS_Store
+.claude/
+
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model/checkpoint artifacts
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+
+# Experiment outputs
+results/
+outputs/
+runs/
+images/
+plots/
+concept_vectors/
+steering_vectors/
+new_cache/
+benchmark_results.csv
+concept_sweep_results.csv
+
+# Project-specific generated results
+sd3/results/
+experiments/**/results/
+experiments/**/outputs/
+experiments/**/images/
+experiments/**/plots/
+experiments/**/concept_vectors/
+experiments/**/steering_vectors/
+experiments/**/new_cache/
+
+docs/*

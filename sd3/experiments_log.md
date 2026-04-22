@@ -400,3 +400,22 @@ Find the exact minimum alpha pair where the bed disappears.
 TBD — awaiting output.
 
 ---
+
+## Experiment #20 — Neutral prompt change: "an empty room"
+
+**Date:** 2026-04-22
+
+### Config changes from #19
+| Parameter | Value |
+|---|---|
+| `NEUTRAL_PROMPT` | `"an empty room"` (was `"a room"`) |
+
+### Observations
+- Bed removed at `CLIP-L=4, T5=2`.
+- With the old neutral `"a room"`, steering failed at all alphas up to CLIP=10 — the concept was not removable regardless of alpha.
+- Switching to `"an empty room"` is what enabled erasure entirely, not just a reduction in required alpha.
+
+### Key takeaway
+The neutral prompt is the critical variable. `"a room"` produces a direction too entangled with general scene structure to steer cleanly. `"an empty room"` isolates the bed concept more precisely. **`(CLIP=4, T5=2)` with `"an empty room"` neutral** is the first working object erasure configuration.
+
+---
