@@ -3,6 +3,11 @@
 Code for the AI4GOOD Workshop @ NeurIPS 2026 paper
 ([OpenReview](https://openreview.net/forum?id=QJ8g4adkOT)).
 
+Amna Jamal\*, Rajendran Ramesh Babu Manoj Narender\*, Samina Ali, Tarun Chandra Nagaraju,
+Kevin Zhu, Antonio Mari
+
+<sub>\* Equal contribution.</sub>
+
 **Joint carrier erasure** is a training-free way to stop a Diffusion Transformer from
 generating a concept (an object or a style). It learns a low-rank concept subspace in
 every text-conditioning *carrier* (FLUX: `pooled`, `T5`; SD3.5: `pooled`, `CLIP-seq`,
@@ -89,6 +94,8 @@ is `llava-hf/llava-v1.6-vicuna-7b-hf` with greedy decoding; its prompts are in
   a manual audit sheet).
 
 ## Citation
+
+Amna Jamal and Rajendran Ramesh Babu Manoj Narender contributed equally.
 
 ```bibtex
 @inproceedings{jamal2026onecarrier,
