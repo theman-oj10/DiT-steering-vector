@@ -1,45 +1,109 @@
-# DiT Steering Vector Experiments
+# One Carrier Isn't Enough: Redundancy-Aware Concept Suppression in Diffusion Transformers
 
-This repository collects several iterations of activation-steering experiments for diffusion transformer models, mainly FLUX and Stable Diffusion 3 / 3.5.
+Code for the AI4GOOD Workshop @ NeurIPS 2026 paper
+([OpenReview](https://openreview.net/forum?id=QJ8g4adkOT)).
 
-The folders are organized by experiment branch. Some notebooks are polished benchmark runs; others are scratch iterations kept because they capture useful intervention ideas and diagnostic tests.
+Amna Jamal\*, Rajendran Ramesh Babu Manoj Narender\*, Samina Ali, Tarun Chandra Nagaraju,
+Kevin Zhu, Antonio Mari
 
-## Repository Layout
+<sub>\* Equal contribution.</sub>
 
-- `experiments/flux/`: Initial modular FLUX concept-sweep experiment.
-  - `main.ipynb`: End-to-end concept-vector extraction, layer/weight/stream sweep, image generation, metric logging, and visualization.
-  - `utilities/`: Python utilities that belong to this initial FLUX sweep branch.
-- `flux_unlearncanvas/`: Later FLUX object/style unlearning experiments using UnlearnCanvas-style prompts and evaluation.
-  - `ObjectUnlearnFlux.ipynb`: Object-unlearning benchmark iteration.
-  - `StyleUnlearnFlux.ipynb`: Style-unlearning benchmark iteration.
-- `unlearn_canvas_benchmark/`: Earlier/scratch UnlearnCanvas benchmark notebook.
-  - `unlearning_canvas.ipynb`: Style/object suppression tests, classifier experiments, multilayer sweeps, and reconstruction diagnostics.
-- `experiments/sd3.5/`: SD3.5/new-method steering experiments.
-  - `Stable Diffusion Steering.ipynb`: `SD3Steering` class for SD3/SD3.5 MM-DiT steering.
-  - `Main Eval Pipeline.ipynb`: Evaluation pipeline iteration; currently still contains FLUX-based code in parts.
-- `sd3/`: Separate SD3 experiment branch and logs. This folder was intentionally kept separate from the other organization work.
-- `docs/FILE_MAP.md`: More detailed file map and intervention summary.
+**Joint carrier erasure** is a training-free way to stop a Diffusion Transformer from
+generating a concept (an object or a style). It learns a low-rank concept subspace in
+every text-conditioning *carrier* (FLUX: `pooled`, `T5`; SD3.5: `pooled`, `CLIP-seq`,
+`T5-seq`) from contrastive prompt pairs, then projects the concept out of all carriers
+jointly before denoising. No model weights are changed.
 
-## FLUX Utility Code
+## Repository layout
 
-The reusable Python files are not at the repository root. They live with the initial FLUX sweep:
-
-```text
-experiments/flux/utilities/
+```
+carrier_erasure/      the method and evaluation code
+  config.py           model settings, hyperparameters, benchmark grid, output paths
+  prompts.py          contrastive prompt pairs, anchors, benchmark prompts
+  erasure.py          ProjectionErasure: learn / erase / generate / save / load
+  diagnostics.py      residual-energy subspace diagnostic
+  llava_eval.py       LLaVA-1.6 classifier, yes/no probes, four-way audit
+  metrics.py          UA / IRA / CRA / OTR and the operating-point score
+  benchmark.py        subspace cache, operating-point candidates, generation helpers
+scripts/              one runnable script per step (see below)
+notebooks/
+  projection_erasure_v6.ipynb   the original notebook behind the paper (outputs kept)
+archive/              earlier steering-vector experiments, kept for reference only
 ```
 
-Those files cover model setup, configuration, hooks, vector extraction/application, caching, image metrics, file naming, and plotting.
+## Setup
 
-When a notebook outside `experiments/flux/` needs these helpers, it should add the FLUX experiment folder to `sys.path` before importing from `utilities`.
+```bash
+pip install -r requirements.txt
+huggingface-cli login   # FLUX.1-dev and SD3.5 require accepting their licenses on Hugging Face
+```
 
-## Intervention Summary
+A single GPU with about 40 GB of memory runs everything. The diffusion model is moved to
+CPU while LLaVA runs; pass `--cpu-offload` to any script on smaller GPUs.
 
-- `experiments/flux/`: Broad FLUX layer sweep. Hooks transformer block outputs across double-stream and single-stream layers, with steering targets for image, text, or both streams.
-- `flux_unlearncanvas/`: Later FLUX object/style unlearning. The notebook-local `FluxSteering` variants move away from broad block-output hooks toward entry-point and attention-projection hooks such as `context_embedder`, `time_text_embed`, `add_k_proj`, and `add_q_proj`.
-- `unlearn_canvas_benchmark/`: Exploratory UnlearnCanvas tests, including single-layer sweeps, multilayer sweeps, and activation-difference reconstruction.
-- `experiments/sd3.5/`: SD3/SD3.5 MM-DiT steering, mainly targeting joint attention output projections such as `attn.to_out[0]`.
-- `sd3/`: Separate SD3 branch with its own notebooks, logs, and result images.
+## Reproducing the paper
 
-## Generated Files
+Every script takes `--model {flux-schnell,flux-dev,sd3.5-medium}` and `--out-dir`
+(default `outputs/`), and writes to `<out-dir>/<model>/{subspaces,img,tables,figs}`.
+To run everything for one model:
 
-Generated outputs, model weights, caches, local environment files, notebook checkpoints, and result folders are ignored through `.gitignore`. This includes common artifacts such as `.env`, `.DS_Store`, `__pycache__/`, `*.pt`, `*.pth`, `results/`, `outputs/`, `images/`, `plots/`, and `sd3/results/`.
+```bash
+scripts/run_all.sh flux-schnell
+```
+
+Or step by step:
+
+| Step | Script | Produces | Paper |
+|---|---|---|---|
+| 1 | `opsearch.py` | `tables/opsearch_*.csv`, `tables/selected_configs.json` | Sec. 4.4, App. A |
+| 2 | `generate.py` | baseline, ours, prompt-swap (and SD3.5 negative-prompt) images | Sec. 4.1, 4.3 |
+| 3 | `evaluate.py` | `tables/classifications.csv` (LLaVA labels + audit buckets) | Sec. 4.2 |
+| 4 | `tables.py` | `tables/results_{object,style}.csv`, `tables/controls_{object,style}.csv` | Tables 1–4 |
+| 5 | `figures.py` | `figs/qual.png`, `figs/audit.png`, `figs/audit_examples.png` | Figs. 2, 6–10 |
+| 6 | `curves.py` | `figs/curve.png` | Figs. 3, 11, 12 |
+| 7 | `subspace_diagnostics.py` | `figs/diag.png` | Fig. 4, App. E |
+| 8 | `probes.py` | `figs/recoverability.png`, `figs/hard_concept.png` | App. F, G |
+| 9 | `redundancy_ablation.py` | `figs/redundancy_<concept>_<anchor>.png` | Figs. 1, 5 |
+
+Steps 2–9 read the operating points chosen in step 1. Generation and evaluation are
+resume-safe: re-running skips images and classifications that already exist.
+`redundancy_ablation.py` also takes `--concept`, `--kind`, `--anchor` and `--strength`
+to ablate any concept.
+
+## Settings
+
+| | FLUX-schnell | FLUX-dev | SD3.5-medium |
+|---|---|---|---|
+| Steps | 4 | 28 | 28 |
+| Guidance | none | 3.5 (embedded) | 4.5 (CFG) |
+| Max sequence length | 256 | 512 | 256 |
+
+Subspaces use 50 contrastive pairs per concept; pooled and CLIP-seq carriers use rank 4;
+T5 carriers use the smallest rank reaching 95% of singular-value energy (capped at 24) and
+keep the top 10 concept-aligned token rows per pair. Seeds are 188 and 288. The evaluator
+is `llava-hf/llava-v1.6-vicuna-7b-hf` with greedy decoding; its prompts are in
+`carrier_erasure/llava_eval.py`.
+
+## Notes
+
+- The scripts reproduce the notebook's logic; the class and prompt code are copied from it
+  verbatim. The one structural change: outputs are kept per model
+  (`outputs/flux-schnell/`, `outputs/flux-dev/`, …) rather than in one Colab Drive folder.
+- `notebooks/projection_erasure_v6.ipynb` also contains exploratory cells not used in the
+  paper (protected-subspace learning, scene-protected configurations, anchor ablation,
+  a manual audit sheet).
+
+## Citation
+
+Amna Jamal and Rajendran Ramesh Babu Manoj Narender contributed equally.
+
+```bibtex
+@inproceedings{jamal2026onecarrier,
+  title     = {One Carrier Isn't Enough: Redundancy-Aware Concept Suppression in Diffusion Transformers},
+  author    = {Jamal, Amna and Narender, Rajendran Ramesh Babu Manoj and Ali, Samina and
+               Nagaraju, Tarun Chandra and Zhu, Kevin and Mari, Antonio},
+  booktitle = {NeurIPS 2026 Workshop on Trustworthy AI for Good (AI4GOOD)},
+  year      = {2026},
+  url       = {https://openreview.net/forum?id=QJ8g4adkOT}
+}
+```
